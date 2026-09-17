@@ -1,5 +1,10 @@
 name: Initialize atomicmax master calendar feed
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 on:
   push:
     branches:
@@ -26,7 +31,7 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Run aggregator script
-        run: python main.py  # Update this if your entry script has a different name
+        run: python tfs_calendar.py
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

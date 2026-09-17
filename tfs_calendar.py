@@ -98,7 +98,7 @@ def run():
         except Exception as e:
             print(f"Error checking {url}: {e}")
 
-    filename = "TFS_Upper_School_Calendar.ics"
+    filename = "atomicmax_tfmastercal"
     with open(filename, "wb") as f:
         f.write(cal.to_ical())
 
