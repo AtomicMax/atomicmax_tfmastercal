@@ -2,13 +2,7 @@ BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//TFS Upper School Calendar//EN
 BEGIN:VEVENT
-SUMMARY:One Act Play - Upper School
-DTSTART;VALUE=DATE:20260917
-DTEND;VALUE=DATE:20260918
-DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
-END:VEVENT
-BEGIN:VEVENT
-SUMMARY:Upper School Midmester Week
+SUMMARY:about Upper School Midmester Presentations and Assembly Schedule
 DTSTART;VALUE=DATE:20260917
 DTEND;VALUE=DATE:20260918
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
@@ -26,7 +20,7 @@ DTEND;VALUE=DATE:20260918
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT
-SUMMARY:about Upper School Midmester Presentations and Assembly Schedule
+SUMMARY:TFS Christmas Card Contest Submissions
 DTSTART;VALUE=DATE:20260917
 DTEND;VALUE=DATE:20260918
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
@@ -38,16 +32,28 @@ DTEND;VALUE=DATE:20260918
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT
+SUMMARY:One Act Play - Upper School
+DTSTART;VALUE=DATE:20260917
+DTEND;VALUE=DATE:20260918
+DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
+END:VEVENT
+BEGIN:VEVENT
 SUMMARY:about TFS Christmas Card Contest Submissions
 DTSTART;VALUE=DATE:20260917
 DTEND;VALUE=DATE:20260918
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT
-SUMMARY:TFS Christmas Card Contest Submissions
+SUMMARY:Upper School Midmester Week
 DTSTART;VALUE=DATE:20260917
 DTEND;VALUE=DATE:20260918
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Open CoEd Sports: One Act Play dropdown menu
+DTSTART;VALUE=DATE:20260917
+DTEND;VALUE=DATE:20260918
+DESCRIPTION:Source: https://tfsathletics.com/composite
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:Open Girls Sports: Volleyball dropdown menu
@@ -63,12 +69,6 @@ DESCRIPTION:Source: https://tfsathletics.com/composite
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:Volleyball
-DTSTART;VALUE=DATE:20260917
-DTEND;VALUE=DATE:20260918
-DESCRIPTION:Source: https://tfsathletics.com/composite
-END:VEVENT
-BEGIN:VEVENT
-SUMMARY:Open CoEd Sports: One Act Play dropdown menu
 DTSTART;VALUE=DATE:20260917
 DTEND;VALUE=DATE:20260918
 DESCRIPTION:Source: https://tfsathletics.com/composite
