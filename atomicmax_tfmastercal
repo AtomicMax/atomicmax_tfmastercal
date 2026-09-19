@@ -4,31 +4,61 @@ PRODID:-//TFS Upper School Calendar//EN
 BEGIN:VEVENT
 SUMMARY:Upper School Midmester Week
 DTSTART;VALUE=DATE:20260913
+DTEND;VALUE=DATE:20260914
+DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Upper School Midmester Week
+DTSTART;VALUE=DATE:20260914
+DTEND;VALUE=DATE:20260915
+DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Upper School Midmester Week
+DTSTART;VALUE=DATE:20260915
+DTEND;VALUE=DATE:20260916
+DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Upper School Midmester Week
+DTSTART;VALUE=DATE:20260916
+DTEND;VALUE=DATE:20260917
+DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Upper School Midmester Week
+DTSTART;VALUE=DATE:20260917
+DTEND;VALUE=DATE:20260918
+DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:Upper School Midmester Week
+DTSTART;VALUE=DATE:20260918
 DTEND;VALUE=DATE:20260919
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:Upper School Midmester Presentations and Assembly Schedule
-DTSTART;VALUE=DATE:20260921
-DTEND;VALUE=DATE:20260922
+DTSTART;TZID=America/Anguilla:20260921T093000
+DTEND;TZID=America/Anguilla:20260921T103000
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:One Act Play - Upper School
-DTSTART;VALUE=DATE:20261022
-DTEND;VALUE=DATE:20261023
+DTSTART;TZID=America/Anguilla:20261022T190000
+DTEND;TZID=America/Anguilla:20261022T210000
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:One Act Play - Upper School
-DTSTART;VALUE=DATE:20261023
-DTEND;VALUE=DATE:20261024
+DTSTART;TZID=America/Anguilla:20261023T190000
+DTEND;TZID=America/Anguilla:20261023T210000
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:One Act Play - Upper School
-DTSTART;VALUE=DATE:20261024
-DTEND;VALUE=DATE:20261025
+DTSTART;TZID=America/Anguilla:20261024T190000
+DTEND;TZID=America/Anguilla:20261024T210000
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT

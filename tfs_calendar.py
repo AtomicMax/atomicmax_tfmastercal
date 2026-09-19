@@ -155,30 +155,44 @@ def extract_events_from_html(html: str, url: str):
         if not is_target_event(title):
             continue
 
+        is_all_day = bool(article.select_one(".fsAllDay"))
         current = article.get("data-occur-id") or title_link.get("data-occur-id")
         start_date, end_date = parse_occurrence_range(current)
-        is_all_day = bool(article.select_one(".fsAllDay"))
 
-        if start_date is None or not is_all_day:
-            time_tags = article.select("time[datetime]")
-            if not time_tags:
-                continue
-            try:
-                start_date = datetime.fromisoformat(time_tags[0].get("datetime")).date()
-            except ValueError:
-                continue
-            end_date = start_date + timedelta(days=1)
-            end_date = start_date + timedelta(days=1)
+        if is_all_day and start_date is not None and end_date is not None:
+            event_dates = []
+            current_date = start_date
+            while current_date < end_date:
+                event_dates.append({
+                    "title": title,
+                    "start": current_date,
+                    "end": current_date + timedelta(days=1),
+                    "all_day": True,
+                    "source": url,
+                })
+                current_date += timedelta(days=1)
+            events.extend(event_dates)
+            continue
 
-        event_key = (title, start_date, end_date)
+        start_tag = article.select_one("time.fsStartTime[datetime]")
+        end_tag = article.select_one("time.fsEndTime[datetime]")
+        if start_tag is None:
+            continue
+        try:
+            start_time = datetime.fromisoformat(start_tag.get("datetime"))
+            end_time = datetime.fromisoformat(end_tag.get("datetime")) if end_tag else start_time + timedelta(hours=1)
+        except (TypeError, ValueError):
+            continue
+
+        event_key = (title, start_time, end_time)
         if event_key in seen_events:
             continue
         seen_events.add(event_key)
-
         events.append({
             "title": title,
-            "start_date": start_date,
-            "end_date": end_date,
+            "start": start_time,
+            "end": end_time,
+            "all_day": False,
             "source": url,
         })
 
@@ -203,15 +217,15 @@ def run():
             if res.status_code == 200:
                 for item in extract_events_from_html(res.text, url):
                     title = item["title"]
-                    event_key = (title, item["start_date"], item["end_date"])
+                    event_key = (title, item["start"], item["end"])
                     if event_key in seen_events:
                         continue
                     seen_events.add(event_key)
 
                     event = Event()
                     event.add("summary", title)
-                    event.add("dtstart", item["start_date"])
-                    event.add("dtend", item["end_date"])
+                    event.add("dtstart", item["start"])
+                    event.add("dtend", item["end"])
                     event.add("description", f"Source: {url}")
                     cal.add_component(event)
                     count += 1
