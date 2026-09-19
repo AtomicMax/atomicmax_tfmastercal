@@ -4,7 +4,7 @@ PRODID:-//TFS Upper School Calendar//EN
 BEGIN:VEVENT
 SUMMARY:Upper School Midmester Week
 DTSTART;VALUE=DATE:20260913
-DTEND;VALUE=DATE:20260920
+DTEND;VALUE=DATE:20260919
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT
@@ -16,13 +16,25 @@ END:VEVENT
 BEGIN:VEVENT
 SUMMARY:One Act Play - Upper School
 DTSTART;VALUE=DATE:20261022
+DTEND;VALUE=DATE:20261023
+DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:One Act Play - Upper School
+DTSTART;VALUE=DATE:20261023
 DTEND;VALUE=DATE:20261024
+DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:One Act Play - Upper School
+DTSTART;VALUE=DATE:20261024
+DTEND;VALUE=DATE:20261025
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:TFS Christmas Card Contest Submissions
 DTSTART;VALUE=DATE:20261028
-DTEND;VALUE=DATE:20261030
+DTEND;VALUE=DATE:20261029
 DESCRIPTION:Source: https://www.tallulahfalls.org/about/calendars
 END:VEVENT
 END:VCALENDAR

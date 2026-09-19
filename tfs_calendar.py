@@ -53,6 +53,8 @@ ALLOWED_KEYWORDS = [
     "school closed",
     "school holiday",
     "off date",
+    "break",
+    "holiday",
     "one act play",
     "christmas card contest",
     "all school",
@@ -153,14 +155,11 @@ def extract_events_from_html(html: str, url: str):
         if not is_target_event(title):
             continue
 
-        if title in seen_events:
-            continue
-        seen_events.add(title)
-
         current = article.get("data-occur-id") or title_link.get("data-occur-id")
         start_date, end_date = parse_occurrence_range(current)
+        is_all_day = bool(article.select_one(".fsAllDay"))
 
-        if start_date is None:
+        if start_date is None or not is_all_day:
             time_tags = article.select("time[datetime]")
             if not time_tags:
                 continue
@@ -169,8 +168,12 @@ def extract_events_from_html(html: str, url: str):
             except ValueError:
                 continue
             end_date = start_date + timedelta(days=1)
-        else:
-            end_date = end_date + timedelta(days=1)
+            end_date = start_date + timedelta(days=1)
+
+        event_key = (title, start_date, end_date)
+        if event_key in seen_events:
+            continue
+        seen_events.add(event_key)
 
         events.append({
             "title": title,
@@ -193,16 +196,17 @@ def run():
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
     }
 
-    seen_titles = set()
+    seen_events = set()
     for url in CALENDAR_URLS:
         try:
             res = requests.get(url, headers=headers, timeout=10)
             if res.status_code == 200:
                 for item in extract_events_from_html(res.text, url):
                     title = item["title"]
-                    if title in seen_titles:
+                    event_key = (title, item["start_date"], item["end_date"])
+                    if event_key in seen_events:
                         continue
-                    seen_titles.add(title)
+                    seen_events.add(event_key)
 
                     event = Event()
                     event.add("summary", title)
