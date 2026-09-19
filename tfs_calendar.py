@@ -40,6 +40,7 @@ CALENDAR_URLS = [
 # Keywords to INCLUDE
 ALLOWED_KEYWORDS = [
     "upper school",
+    "us",
     "midmester",
     "mid-mester",
     "9th grade",
@@ -48,14 +49,15 @@ ALLOWED_KEYWORDS = [
     "junior",
     "volleyball",
     "vball",
+    "no school",
+    "school closed",
+    "school holiday",
+    "off date",
     "one act play",
     "christmas card contest",
     "all school",
     "commencement",
     "convocation",
-    "no school",
-    "break",
-    "holiday",
 ]
 
 # Keywords to EXCLUDE
@@ -89,34 +91,95 @@ def is_target_event(text: str) -> bool:
         return False
     if clean.startswith("load more") or clean.startswith("monthly calendar"):
         return False
+    is_volleyball_sac = (
+        re.search(r"\bvolleyball\b", clean)
+        and re.search(r"\bsac\b", clean)
+    )
+    if is_volleyball_sac and (
+        re.search(r"\bmiddle school\b", clean)
+        or re.search(r"\bms\b", clean)
+    ):
+        return True
     if any(ex in clean for ex in EXCLUDED_KEYWORDS):
         return False
-    return any(inc in clean for inc in ALLOWED_KEYWORDS)
+    if re.search(r"\blower school\b|\bls\b", clean):
+        return False
+    if re.search(r"\bmiddle school\b|\bms\b", clean):
+        return False
+    return any(
+        keyword in clean
+        if " " in keyword
+        else re.search(rf"\b{re.escape(keyword)}\b", clean)
+        for keyword in ALLOWED_KEYWORDS
+    )
 
 
-def parse_event_date(lines, event_index):
-    window = lines[max(0, event_index - 10) : min(len(lines), event_index + 15)]
-    tokens = []
-    for line in window:
-        tokens.extend(re.split(r"[\s|]+", line.strip()))
-    tokens = [t for t in tokens if t]
+def parse_occurrence_range(occur_id: str):
+    if not occur_id:
+        return None, None
 
-    for pos, token in enumerate(tokens):
-        key = token.strip().lower().rstrip(".")
-        month = MONTH_MAP.get(key)
-        if month is None:
+    match = re.search(r"(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}Z_(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}Z", occur_id)
+    if match:
+        start_date = date.fromisoformat(match.group(1))
+        end_date = date.fromisoformat(match.group(2))
+        return start_date, end_date
+
+    match = re.search(r"(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}", occur_id)
+    if match:
+        return date.fromisoformat(match.group(1)), date.fromisoformat(match.group(1))
+
+    return None, None
+
+
+def extract_events_from_html(html: str, url: str):
+    soup = BeautifulSoup(html, "html.parser")
+    events = []
+    seen_events = set()
+
+    for article in soup.select("article"):
+        title_link = None
+        for link in article.select("a.fsCalendarEventLink"):
+            if "fsReadMoreLink" in link.get("class", []):
+                continue
+            text = " ".join(link.get_text(" ", strip=True).split())
+            if text:
+                title_link = link
+                break
+
+        if title_link is None:
             continue
 
-        for day_pos in range(pos + 1, min(len(tokens), pos + 8)):
-            day_text = tokens[day_pos].strip().rstrip(",")
-            if not day_text.isdigit() or not (1 <= int(day_text) <= 31):
-                continue
-            for year_pos in range(day_pos + 1, min(len(tokens), day_pos + 4)):
-                year_text = tokens[year_pos].strip().rstrip(",")
-                if year_text.isdigit() and len(year_text) == 4:
-                    return date(int(year_text), month, int(day_text))
+        title = " ".join(title_link.get_text(" ", strip=True).split())
+        if not is_target_event(title):
+            continue
 
-    return None
+        if title in seen_events:
+            continue
+        seen_events.add(title)
+
+        current = article.get("data-occur-id") or title_link.get("data-occur-id")
+        start_date, end_date = parse_occurrence_range(current)
+
+        if start_date is None:
+            time_tags = article.select("time[datetime]")
+            if not time_tags:
+                continue
+            try:
+                start_date = datetime.fromisoformat(time_tags[0].get("datetime")).date()
+            except ValueError:
+                continue
+            end_date = start_date + timedelta(days=1)
+        else:
+            end_date = end_date + timedelta(days=1)
+
+        events.append({
+            "title": title,
+            "start_date": start_date,
+            "end_date": end_date,
+            "source": url,
+        })
+
+    return events
 
 
 def run():
@@ -130,34 +193,21 @@ def run():
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
     }
 
+    seen_titles = set()
     for url in CALENDAR_URLS:
         try:
             res = requests.get(url, headers=headers, timeout=10)
             if res.status_code == 200:
-                soup = BeautifulSoup(res.text, "html.parser")
-                lines = [
-                    line.strip()
-                    for line in soup.get_text().split("\n")
-                    if len(line.strip()) > 5
-                ]
-
-                seen = set()
-                for idx, line in enumerate(lines):
-                    if not is_target_event(line):
+                for item in extract_events_from_html(res.text, url):
+                    title = item["title"]
+                    if title in seen_titles:
                         continue
-                    cleaned = re.sub(r"\s+", " ", line).strip()
-                    if not cleaned or cleaned in seen:
-                        continue
-                    seen.add(cleaned)
-
-                    event_date = parse_event_date(lines, idx)
-                    if event_date is None:
-                        continue
+                    seen_titles.add(title)
 
                     event = Event()
-                    event.add("summary", cleaned)
-                    event.add("dtstart", event_date)
-                    event.add("dtend", event_date + timedelta(days=1))
+                    event.add("summary", title)
+                    event.add("dtstart", item["start_date"])
+                    event.add("dtend", item["end_date"])
                     event.add("description", f"Source: {url}")
                     cal.add_component(event)
                     count += 1
