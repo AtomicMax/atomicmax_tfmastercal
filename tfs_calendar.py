@@ -114,7 +114,7 @@ def is_noise(title: str) -> bool:
 
 
 GRADE_4_TO_8_RE = re.compile(
-    r"\b(?:4th|5th|6th|7th|8th|fourth|fifth|sixth|seventh|eighth)\s+grades?\b"
+    r"\b(?:4th|5th|6th|7th|8th|fourth|fifth|sixth|seventh|eighth)\s+grade[ds]?\b"
     r"|\b[4-8]th(?:\s*(?:,|&|and|/)\s*[4-8]th)+\s+grades?\b",
     re.I,
 )
@@ -314,17 +314,77 @@ def event_uid(item: dict) -> str:
     return str(uuid5(NAMESPACE_URL, f"tfs-master-cal:{key}"))
 
 
+def strip_time_and_dates(title: str) -> str:
+    text = title.lower()
+    text = re.sub(r"\([^)]*\)", " ", text)
+    text = re.sub(r"\d{1,2}:\d{2}\s*[ap]\.?m\.?", " ", text)
+    text = re.sub(r"\d{1,2}\s*[ap]\.?m\.?", " ", text)
+    text = re.sub(
+        r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+        " ",
+        text,
+    )
+    text = re.sub(
+        r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}\b",
+        " ",
+        text,
+    )
+    text = re.sub(r"[^a-z0-9\s]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def event_family(title: str) -> str:
+    text = strip_time_and_dates(title)
+    if re.search(r"\bclub day\b", text):
+        return "club-day"
+    if re.search(r"\bung\b|\bapply for free\b", text):
+        return "ung-visit"
+    if re.search(r"\bmercer\b", text):
+        return "mercer-visit"
+    if re.search(r"\bcollege visit", text):
+        return "college-visit"
+    return text
+
+
+def title_quality(item: dict) -> tuple:
+    title = item["title"]
+    source = item.get("source", "")
+    official = 0 if "tallulahfalls.org" in source else 1
+    smore = 1 if "smore.com" in source else 0
+    junk = 1 if re.search(r"^(on campus|we will|there will)|college visits:", title, re.I) else 0
+    longish = len(title)
+    return (official, smore, junk, longish)
+
+
+def same_day(a: dict, b: dict) -> bool:
+    return a["start"].date() == b["start"].date()
+
+
+def is_near_duplicate(a: dict, b: dict) -> bool:
+    if not same_day(a, b):
+        return False
+    if a["title"] == b["title"]:
+        return True
+    fa, fb = event_family(a["title"]), event_family(b["title"])
+    if fa and fa == fb:
+        return True
+    na, nb = strip_time_and_dates(a["title"]), strip_time_and_dates(b["title"])
+    if not na or not nb:
+        return False
+    if na in nb or nb in na:
+        return True
+    return False
+
+
 def dedupe(events: list[dict]) -> list[dict]:
-    seen = set()
-    unique = []
-    for item in events:
-        key = (item["title"], item["start"], item["end"])
-        if key in seen:
+    ranked = sorted(events, key=title_quality)
+    kept: list[dict] = []
+    for item in ranked:
+        if any(is_near_duplicate(item, existing) for existing in kept):
             continue
-        seen.add(key)
-        unique.append(item)
-    unique.sort(key=lambda item: (item["start"], item["title"]))
-    return unique
+        kept.append(item)
+    kept.sort(key=lambda item: (item["start"], item["title"]))
+    return kept
 
 
 def format_clock(when: datetime) -> str:
@@ -346,7 +406,7 @@ def title_with_time(title: str, start: datetime, end: datetime | None = None) ->
     return f"{title} ({format_clock(start_local)}–{format_clock(end_local)})"
 
 
-def all_day_event(title: str, day: date, source: str, occur_id: str = "") -> dict:
+def all_day_event(title: str, day: date, source: str, occur_id: str = "", description: str = "") -> dict:
     start = datetime(day.year, day.month, day.day, tzinfo=UTC)
     end = start + timedelta(days=1)
     return {
@@ -356,6 +416,7 @@ def all_day_event(title: str, day: date, source: str, occur_id: str = "") -> dic
         "all_day": True,
         "source": source,
         "occur_id": occur_id,
+        "description": description,
     }
 
 
@@ -550,19 +611,9 @@ def smore_usable_text(text: str) -> str:
 def extract_smore_events(text: str, source: str) -> list[dict]:
     events = []
     usable = smore_usable_text(text)
-    # Join short payload fragments so "UNG:" + "Thursday, September 24," stay together.
-    lines = [clean_title(part) for part in re.split(r"\n+", usable) if clean_title(part)]
-    windows = []
-    for i, line in enumerate(lines):
-        chunk = line
-        if i + 1 < len(lines):
-            chunk = clean_title(chunk + " " + lines[i + 1])
-        if i + 2 < len(lines):
-            chunk = clean_title(chunk + " " + lines[i + 2])
-        windows.append(chunk)
-        windows.append(line)
+    sentences = [clean_title(part) for part in re.split(r"(?<=[.!])\s+|\n+", usable) if clean_title(part)]
     seen_titles = set()
-    for sentence in windows:
+    for sentence in sentences:
         if not sentence or not keep_event(sentence):
             continue
         day = parse_smore_date(sentence)
@@ -643,7 +694,9 @@ def add_event(calendar: Calendar, item: dict, now: datetime) -> None:
     event.add("uid", event_uid(item))
     event.add("dtstamp", now)
     event.add("summary", item["title"])
-    event.add("description", f"Source: {item['source']}")
+    details = item.get("description") or ""
+    source_line = f"Source: {item['source']}"
+    event.add("description", f"{details}\n{source_line}".strip() if details else source_line)
     event.add("url", vText(item["source"]))
     event.add("transp", "TRANSPARENT")
 
@@ -657,6 +710,215 @@ def add_event(calendar: Calendar, item: dict, now: datetime) -> None:
     calendar.add_component(event)
 
 
+VOLLEYBALL_RE = re.compile(r"\bvolley(?:ball)?\b", re.I)
+RIFLE_RE = re.compile(r"\bprecision rifle|\brifle team\b|\brifle\b", re.I)
+SPORT_RE = re.compile(
+    r"\b(volleyball|volley|softball|baseball|basketball|soccer|tennis|golf|"
+    r"football|swimming|swim|cheer|track|cross country|\bxc\b|rifle)\b",
+    re.I,
+)
+LEVEL_RE = re.compile(r"\b(JV/?V|JVB|JV|VG|VB|V|Varsity|Junior Varsity)\b", re.I)
+
+
+def first_clock_label(title: str) -> str:
+    match = re.search(r"(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)?", title, re.I)
+    if not match:
+        match = re.search(r"\b(\d{1,2}):(\d{2})\b", title)
+        if not match:
+            return ""
+        return f"{int(match.group(1))}:{match.group(2)}"
+    hour = int(match.group(1))
+    minute = match.group(2) or "00"
+    mer = (match.group(3) or "").lower().replace(".", "")
+    if mer:
+        return f"{hour}:{minute} {mer.upper()}"
+    return f"{hour}:{minute}"
+
+
+def venue_and_opponent(title: str) -> tuple[str, str]:
+    home = bool(re.search(r"\bhome\b|\(home\)", title, re.I))
+    away = bool(re.search(r"\s@\s|\baway\b", title, re.I))
+    venue = "Home" if home and not away else "Away" if away or "@" in title else ""
+    opp = ""
+    match = re.search(
+        r"(?:HOME\s*v(?:s)?\.?|\(HOME\)\s*vs\.?|vs\.?|v\.?|@)\s+([^0-9(]+)",
+        title,
+        re.I,
+    )
+    if match:
+        opp = clean_title(match.group(1))
+        opp = re.sub(r"\b(tri-match|tourney|tournament|tba)\b.*", "", opp, flags=re.I).strip(" -")
+    return venue, opp
+
+
+def sport_level(title: str) -> str:
+    match = LEVEL_RE.search(title)
+    token = match.group(1) if match else "V"
+    token = token.replace("Varsity", "V").replace("Junior Varsity", "JV")
+    if token.upper() in {"V", "VB", "VG"} and "jv" not in title.lower():
+        return "V"
+    if token.upper().startswith("JV"):
+        return "JV" if "V" not in token.upper()[2:] else "JV/V"
+    return token
+
+
+def sport_name(title: str) -> str:
+    lowered = title.lower()
+    names = [
+        ("volleyball", "Volleyball"),
+        ("softball", "Softball"),
+        ("basketball", "Basketball"),
+        ("cross country", "Cross Country"),
+        ("baseball", "Baseball"),
+        ("soccer", "Soccer"),
+        ("tennis", "Tennis"),
+        ("golf", "Golf"),
+        ("football", "Football"),
+        ("swim", "Swim"),
+        ("cheer", "Cheer"),
+        ("track", "Track"),
+        ("precision rifle", "Precision Rifle"),
+        ("rifle", "Precision Rifle"),
+    ]
+    for needle, label in names:
+        if needle in lowered:
+            return label
+    return "Sports"
+
+
+def is_sport(title: str) -> bool:
+    if re.search(r"interest meeting|sleepover|rafting", title, re.I):
+        return False
+    return bool(SPORT_RE.search(title))
+
+
+def is_unique_sport(title: str) -> bool:
+    return bool(VOLLEYBALL_RE.search(title) or RIFLE_RE.search(title))
+
+
+def format_sport_title(title: str) -> tuple[str, str]:
+    name = sport_name(title)
+    level = sport_level(title)
+    venue, opponent = venue_and_opponent(title)
+    clock = first_clock_label(title)
+    if name == "Volleyball":
+        core = f"{level} Volleyball Game"
+    elif name == "Precision Rifle":
+        core = f"{level} Precision Rifle"
+    else:
+        core = f"{level} {name}"
+    if venue:
+        core = f"{core} {venue}"
+    brief = f"{core} - {clock}" if clock else core
+    details = []
+    if opponent:
+        details.append(f"Opponent: {opponent}")
+    extra = clean_title(re.sub(r"\([^)]*\)", " ", title))
+    if extra and extra.lower() not in brief.lower():
+        details.append(extra)
+    return brief, "\n".join(details)
+
+
+def format_early_release(title: str) -> tuple[str, str]:
+    clock = first_clock_label(title)
+    if "noon" in title.lower() and not clock:
+        clock = "12:00 PM"
+    brief = f"Early Release - {clock}" if clock else "Early Release"
+    return brief, title
+
+
+def format_generic(title: str) -> tuple[str, str]:
+    original = title
+    clock = first_clock_label(title)
+    text = re.sub(r"\([^)]*\)", " ", title)
+    text = re.sub(
+        r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday),?\s*"
+        r"(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s*",
+        " ",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"\d{1,2}:\d{2}\s*[ap]\.?m\.?", " ", text, flags=re.I)
+    text = clean_title(text).strip(" -")
+    lowered = text.lower()
+    if "club day" in lowered:
+        text = "Club Day"
+    elif "ung" in lowered or "apply for free" in lowered:
+        text = "UNG Apply for Free Day"
+    elif "mercer" in lowered:
+        text = "Mercer University Visit"
+    if len(text) > 60:
+        text = text[:57] + "..."
+    if clock and clock.lower() not in text.lower():
+        text = f"{text} - {clock}"
+    return text, original
+
+
+def reshape_event(item: dict) -> dict:
+    title = item["title"]
+    if re.search(r"\bearly release\b|\bhalf day\b", title, re.I):
+        brief, details = format_early_release(title)
+    elif is_sport(title):
+        brief, details = format_sport_title(title)
+    elif item.get("source", "").find("smore.com") != -1:
+        brief, details = format_generic(title)
+    else:
+        brief, details = format_generic(title) if len(title) > 70 else (title, "")
+        # Drop appended clock-in-parens from older conversion; keep brief official names.
+        brief = re.sub(r"\s*\(\d{1,2}:\d{2} [AP]M(?:–[^)]+)?\)\s*$", "", brief)
+        clock = first_clock_label(title)
+        if clock and is_sport(title):
+            brief, details = format_sport_title(title)
+        elif clock and "club day" in title.lower():
+            brief, details = format_generic(title)
+    item = dict(item)
+    item["title"] = brief
+    extra = item.get("description") or ""
+    item["description"] = "\n".join(part for part in (details, extra) if part)
+    return item
+
+
+def merge_same_day_sports(events: list[dict]) -> list[dict]:
+    groups: dict[date, list[dict]] = {}
+    others: list[dict] = []
+    for item in events:
+        if is_sport(item["title"]) and not is_unique_sport(item["title"]):
+            groups.setdefault(item["start"].date(), []).append(item)
+        else:
+            others.append(item)
+    merged = []
+    for day, items in groups.items():
+        if len(items) == 1:
+            merged.append(items[0])
+            continue
+        clocks = [first_clock_label(i["title"]) for i in items]
+        clocks = [c for c in clocks if c]
+        clock = clocks[0] if clocks else ""
+        names = []
+        for item in items:
+            name = sport_name(item["title"])
+            if name not in names:
+                names.append(name)
+        joined = ", ".join(names) if names else "Athletics"
+        title = f"{joined} - {clock}" if clock else joined
+        lines = []
+        for item in items:
+            line = item["title"]
+            if item.get("description"):
+                line = f"{line} — {item['description'].splitlines()[0]}"
+            lines.append(line)
+        merged.append(
+            all_day_event(
+                title,
+                day,
+                items[0]["source"],
+                occur_id=f"sports-{day.isoformat()}",
+                description="\n".join(lines),
+            )
+        )
+    return others + merged
+
+
 def run() -> None:
     print("Fetching TFS master calendar...")
     sess = session()
@@ -665,6 +927,9 @@ def run() -> None:
     events.extend(fetch_smore_events(sess))
     events.extend(generate_ab_week_labels())
     events = [item for item in events if keep_event(item["title"])]
+    events = dedupe(events)
+    events = [reshape_event(item) for item in events]
+    events = merge_same_day_sports(events)
     events = dedupe(events)
 
     calendar = Calendar()
@@ -694,4 +959,3 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    run()
