@@ -956,7 +956,5 @@ def run() -> None:
         print(f"  [{kind}] {item['start']} — {item['title']}")
     if len(events) > 25:
         print(f"  ... {len(events) - 25} more")
-
-
 if __name__ == "__main__":
-    
+    run()
