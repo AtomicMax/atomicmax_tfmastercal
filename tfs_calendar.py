@@ -75,15 +75,29 @@ NOISE_PREFIXES = (
     "monthly calendar",
     "calendar rss",
     "event search",
+    "open girls sports",
+    "open coed sports",
+    "open boys sports",
 )
 
 BIRTHDAY_RE = re.compile(r"\b(birthdays?|happy birthday|b-?day)\b", re.I)
 SCHOLARSHIP_RE = re.compile(r"\bscholarships?\b", re.I)
 ATHLETICS_RE = re.compile(
-    r"\b(volleyball|volley|softball|baseball|basketball|soccer|tennis|golf|"
-    r"football|swimming|swim|cheer|track|cross country|\bxc\b|rifle|"
-    r"harrier|athletics|varsity|junior varsity|\bjv\b|\bjvb\b|\bvg\b|"
-    r"scrimmage|tournament|tourney|tri-match)\b",
+    r"\b("
+    r"volleyball|volley|softball|baseball|basketball|soccer|tennis|golf|"
+    r"football|swimming|swim|cheer(?:leading)?|track(?:\s*and\s*field)?|"
+    r"cross[\s-]*country|\bxc\b|rifle|precision rifle|bass(?:\s*fishing)?|"
+    r"esports?|e-sports?|harrier|athletics|"
+    r"varsity|junior varsity|\bjv\b|\bjvb\b|\bjv/v\b|\bvg\b|"
+    r"scrimmage|tournament|tourney|tri-?match|"
+    r"game home|game away|home v\.|home vs"
+    r")\b",
+    re.I,
+)
+ATHLETICS_KEEP_RE = re.compile(
+    r"\b(sports begin|fall sports|winter sports|spring sports|"
+    r"physicals?|letter jacket|sports banquet|athletics banquet|"
+    r"sports pictures?)\b",
     re.I,
 )
 GRADE_4_TO_8_RE = re.compile(
@@ -118,16 +132,25 @@ def is_ms_or_ls_only(title: str) -> bool:
     return any(re.search(pattern, lowered) for pattern in MS_LS_ONLY)
 
 
-def keep_event(title: str) -> bool:
+def is_athletics(text: str) -> bool:
+    if not text:
+        return False
+    if ATHLETICS_KEEP_RE.search(text):
+        return False
+    return bool(ATHLETICS_RE.search(text))
+
+
+def keep_event(title: str, extra: str = "") -> bool:
+    blob = f"{title}\n{extra}"
     if is_noise(title):
         return False
-    if BIRTHDAY_RE.search(title):
+    if BIRTHDAY_RE.search(blob):
         return False
     if SCHOLARSHIP_RE.search(title):
         return False
     if is_ms_or_ls_only(title):
         return False
-    if ATHLETICS_RE.search(title):
+    if is_athletics(blob):
         return False
     return True
 
@@ -451,7 +474,7 @@ def is_human_smore_text(text: str) -> bool:
 def smore_payload_strings(html: str) -> list:
     parts = []
     for raw in re.findall(r'\\"(.*?)\\"', html):
-        text = raw.replace(""", '"').replace("&#39;", "'").replace("&", "&").replace("\\n", " ").replace("\\u2013", "\u2013").replace("\\u2014", "\u2014").replace("\\u2019", "'").strip()
+        text = raw.replace('"', '"').replace("&#39;", "'").replace("&amp;", "&").replace("\\n", " ").replace("\\u2013", "\u2013").replace("\\u2014", "\u2014").replace("\\u2019", "'").strip()
         if is_human_smore_text(text):
             parts.append(text)
     return parts
@@ -469,7 +492,7 @@ def smore_plain_text(html: str) -> str:
 def smore_usable_text(text: str) -> str:
     lowered = text.lower()
     cut_points = []
-    for marker in ("\nscholarships\n", "\nscholarship\n", "new $", "award deadline"):
+    for marker in ("\nscholarships\n", "\nscholarship\n", "new ", "award deadline"):
         idx = lowered.find(marker)
         if idx != -1:
             cut_points.append(idx)
@@ -635,9 +658,10 @@ def run() -> None:
     events = fetch_master_calendar(sess)
     events.extend(fetch_smore_events(sess))
     events.extend(generate_ab_week_labels())
-    events = [item for item in events if keep_event(item["title"])]
+    events = [item for item in events if keep_event(item["title"], item.get("description", ""))]
     events = dedupe(events)
     events = [reshape_event(item) for item in events]
+    events = [item for item in events if keep_event(item["title"], item.get("description", ""))]
     events = dedupe(events)
     calendar = Calendar()
     calendar.add("prodid", "-//TFS Master Calendar//EN")
