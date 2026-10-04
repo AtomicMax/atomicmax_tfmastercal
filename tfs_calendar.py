@@ -140,6 +140,60 @@ def is_athletics(text: str) -> bool:
     return bool(ATHLETICS_RE.search(text))
 
 
+def load_omit_rules(path: str = "omit.txt") -> list:
+    """Read omit.txt. Each line is a title phrase, or YYYY-MM-DD | phrase.
+
+    Blank lines and lines starting with # are ignored.
+    A phrase drops every event whose title contains it (case-insensitive).
+    A dated line drops that phrase only on that day.
+    """
+    rules = []
+    try:
+        raw = open(path, encoding="utf-8").read().splitlines()
+    except FileNotFoundError:
+        print("No omit.txt found; keeping all events that pass the filters.")
+        return rules
+    for line in raw:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        day = None
+        phrase = line
+        if "|" in line:
+            left, right = line.split("|", 1)
+            left, right = left.strip(), right.strip()
+            if len(left) == 10 and left[4] == "-" and left[7] == "-":
+                day, phrase = left, right
+        if phrase:
+            rules.append((day, phrase.lower()))
+    print(f"Loaded {len(rules)} omit rule(s) from {path}")
+    return rules
+
+
+def is_omitted(item: dict, rules: list) -> bool:
+    if not rules:
+        return False
+    title = (item.get("title") or "").lower()
+    day = item["start"].date().isoformat()
+    for rule_day, phrase in rules:
+        if phrase in title and (rule_day is None or rule_day == day):
+            return True
+    return False
+
+
+def apply_omit(events: list, rules: list) -> list:
+    kept = []
+    dropped = 0
+    for item in events:
+        if is_omitted(item, rules):
+            dropped += 1
+            print(f"  omitted {item['start'].date().isoformat()} — {item['title']}")
+            continue
+        kept.append(item)
+    print(f"Omitted {dropped} event(s) from omit.txt")
+    return kept
+
+
 def keep_event(title: str, extra: str = "") -> bool:
     blob = f"{title}\n{extra}"
     if is_noise(title):
@@ -659,8 +713,10 @@ def run() -> None:
     events.extend(fetch_smore_events(sess))
     events.extend(generate_ab_week_labels())
     events = [item for item in events if keep_event(item["title"], item.get("description", ""))]
+    events = apply_omit(events, load_omit_rules())
     events = dedupe(events)
     events = [reshape_event(item) for item in events]
+    events = apply_omit(events, load_omit_rules())
     events = [item for item in events if keep_event(item["title"], item.get("description", ""))]
     events = dedupe(events)
     calendar = Calendar()
