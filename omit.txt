@@ -1,0 +1,12 @@
+# Drop events from the custom TFS calendar.
+# One item per line. Blank lines and # comments are ignored.
+#
+# Drop every date whose title contains the phrase:
+# Picture Day
+#
+# Drop only one day (date, then a pipe, then the phrase):
+# 2026-10-15 | College Fair
+#
+# Examples — delete the # to use them:
+# Board of Trustees
+# 2026-09-24 | UNG Apply for Free
